@@ -95,25 +95,42 @@ NEO4J_PASSWORD=password
 OPENROUTER_API_KEY=sua_chave_aqui  # Pegue em https://openrouter.ai
 ```
 
-**Modelos LLM disponíveis** (gratuitos no OpenRouter - ✅ **testados em 12/05/2026**):
+**Sistema de Fallback Automático** 🔄
+
+O sistema possui **fallback automático** entre múltiplos modelos LLM. Se um modelo falhar (404, rate limit, erro de API), automaticamente tenta o próximo da lista!
+
 ```env
-# ✅ RECOMENDADO (Google Gemma 4, 26B MoE, 4B ativos - melhor qualidade):
-NLP_MODEL=google/gemma-4-26b-a4b-it:free
-
-# ✅ Alternativas testadas e funcionando:
-NLP_MODEL=minimax/minimax-m2.5:free                                # MiniMax - produtividade
-NLP_MODEL=nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free       # NVIDIA Nemotron 3 Nano
-
-# Outras opções (não testadas recentemente):
-# NLP_MODEL=google/gemma-2-9b-it:free                 # Gemma 2 - 9B
-# NLP_MODEL=meta-llama/llama-3.2-3b-instruct:free     # Meta Llama 3.2 - compacto
-# NLP_MODEL=mistralai/mistral-7b-instruct:free        # Mistral 7B - balanceado
-# NLP_MODEL=microsoft/phi-3-mini-128k-instruct:free   # Microsoft Phi-3 - eficiente
+# Configure múltiplos modelos (testados ✅ em 12/05/2026):
+QTD_DE_NPL_MODEL=3
+NLP_MODEL_1=google/gemma-4-26b-a4b-it:free                       # Principal (melhor qualidade)
+NLP_MODEL_2=minimax/minimax-m2.5:free                            # Backup 1 (produtividade)
+NLP_MODEL_3=nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free   # Backup 2 (reasoning)
 ```
 
-> ⚠️ **Importante**: Modelos gratuitos mudam frequentemente. Se receber erro "is not a valid model ID", 
-> teste os modelos alternativos acima ou verifique os disponíveis em: 
-> https://openrouter.ai/models?max_price=0
+**Como funciona?**
+
+1. 🎯 Sistema tenta **NLP_MODEL_1** primeiro
+2. ❌ Se falhar (404, rate limit, erro), tenta **NLP_MODEL_2**
+3. ❌ Se falhar novamente, tenta **NLP_MODEL_3**
+4. ✅ Ao ter sucesso, retorna para **NLP_MODEL_1** na próxima requisição
+
+> 💡 **Benefícios**: Maior resiliência, melhor disponibilidade, experiencia contínua para o usuário.
+
+**Configuração alternativa (modelo único):**
+```env
+# Ainda funciona com modelo único (sem fallback):
+NLP_MODEL=google/gemma-4-26b-a4b-it:free
+```
+
+**Outras opções gratuitas** (não testadas recentemente):
+```env
+# NLP_MODEL_4=google/gemma-2-9b-it:free                 # Gemma 2 - 9B
+# NLP_MODEL_5=meta-llama/llama-3.2-3b-instruct:free     # Meta Llama 3.2
+# NLP_MODEL_6=mistralai/mistral-7b-instruct:free        # Mistral 7B
+# NLP_MODEL_7=microsoft/phi-3-mini-128k-instruct:free   # Microsoft Phi-3
+```
+
+> ⚠️ **Importante**: Modelos gratuitos mudam frequentemente. Consulte os disponíveis em: https://openrouter.ai/models?max_price=0
 
 ### Passo 3: Infraestrutura
 ```bash
@@ -347,17 +364,42 @@ Siga o guia detalhado de testes em **[TESTING.md](./TESTING.md)** que inclui:
   NotFoundError: 404 No endpoints found for model...
   'model-name is not a valid model ID'
   ```
-- **Solução**: Atualizar o modelo no arquivo `.env` com modelos testados e funcionando:
+- **Solução**: O sistema possui **fallback automático**! Configure múltiplos modelos no `.env`:
   ```env
-  # ✅ Testados e funcionando (12/05/2026):
-  NLP_MODEL=google/gemma-4-26b-a4b-it:free                       # RECOMENDADO (melhor qualidade)
-  NLP_MODEL=minimax/minimax-m2.5:free                            # MiniMax - produtividade
-  NLP_MODEL=nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free   # NVIDIA Nemotron 3
+  # Sistema de Fallback (tenta cada modelo em ordem até obter sucesso):
+  QTD_DE_NPL_MODEL=3
+  NLP_MODEL_1=google/gemma-4-26b-a4b-it:free                       # ✅ RECOMENDADO
+  NLP_MODEL_2=minimax/minimax-m2.5:free                            # ✅ Backup 1
+  NLP_MODEL_3=nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free   # ✅ Backup 2
   ```
+  Se **NLP_MODEL_1** falhar, o sistema automaticamente tenta **NLP_MODEL_2**, depois **NLP_MODEL_3**.
+  
+- **Configuração única** (sem fallback):
+  ```env
+  # Remover QTD_DE_NPL_MODEL para usar apenas um modelo:
+  NLP_MODEL=google/gemma-4-26b-a4b-it:free
+  ```
+  
+- **Logs**: Verifique os logs do servidor para ver qual modelo foi usado:
+  ```
+  🤖 Gerando resposta com IA...
+     Tentando modelo: google/gemma-4-26b-a4b-it:free (1/3)
+     ✅ Sucesso!
+  ```
+  Ou se houve fallback:
+  ```
+  🤖 Gerando resposta com IA...
+     Tentando modelo: google/gemma-4-26b-a4b-it:free (1/3)
+     ⚠️  Falha no modelo google/gemma-4-26b-a4b-it:free: 404 Not Found
+  🔄 Tentando modelo alternativo: minimax/minimax-m2.5:free
+     Tentando modelo: minimax/minimax-m2.5:free (2/3)
+     ✅ Sucesso com modelo alternativo: minimax/minimax-m2.5:free
+  ```
+  
 - **Após alterar**: Reinicie o servidor (`Ctrl+C` e `npm run dev`)
 - **Verificar modelos disponíveis**: https://openrouter.ai/models?max_price=0
 
-> 💡 **Dica**: Os 3 modelos acima foram testados e aprovados em 12/05/2026. O Google Gemma 4 apresentou melhor qualidade nas respostas.
+> 💡 **Dica**: Os 3 modelos acima foram testados em 12/05/2026. Com fallback, o sistema fica muito mais resiliente!
 
 ## 📚 Recursos e Referências
 

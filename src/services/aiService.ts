@@ -10,6 +10,8 @@ export interface AIResponse {
     error?: string;
     metadata?: {
         model: string;
+        modelIndex?: number;        // Índice do modelo usado (0-based)
+        attemptedModels?: string[]; // Modelos tentados antes de sucesso
         tokensUsed?: number;
         processingTime: number;
     };
@@ -19,15 +21,28 @@ export class AIService {
     private ragService: RAGService;
     private llm: ChatOpenAI;
     private promptTemplate: ChatPromptTemplate;
+    private availableModels: string[];
+    private currentModelIndex: number = 0;
 
     constructor() {
         this.ragService = new RAGService();
+        this.availableModels = CONFIG.openRouter.nlpModels;
         
-        // Inicializar LLM
-        this.llm = new ChatOpenAI({
+        // Inicializar LLM com primeiro modelo
+        this.llm = this.createLLM(this.availableModels[0]);
+
+        // Criar template de prompt
+        this.promptTemplate = ChatPromptTemplate.fromTemplate(CONFIG.templateText);
+    }
+
+    /**
+     * Cria instância do LLM com modelo específico
+     */
+    private createLLM(modelName: string): ChatOpenAI {
+        return new ChatOpenAI({
             temperature: CONFIG.openRouter.temperature,
             maxRetries: CONFIG.openRouter.maxRetries,
-            modelName: CONFIG.openRouter.nlpModel,
+            modelName: modelName,
             maxTokens: CONFIG.openRouter.maxTokens,
             openAIApiKey: CONFIG.openRouter.apiKey,
             configuration: {
@@ -35,9 +50,59 @@ export class AIService {
                 defaultHeaders: CONFIG.openRouter.defaultHeaders,
             }
         });
+    }
 
-        // Criar template de prompt
-        this.promptTemplate = ChatPromptTemplate.fromTemplate(CONFIG.templateText);
+    /**
+     * Troca para próximo modelo disponível
+     */
+    private switchToNextModel(): boolean {
+        if (this.currentModelIndex < this.availableModels.length - 1) {
+            this.currentModelIndex++;
+            const nextModel = this.availableModels[this.currentModelIndex];
+            console.log(`🔄 Tentando modelo alternativo: ${nextModel}`);
+            this.llm = this.createLLM(nextModel);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Verifica se erro é recuperável (deve tentar próximo modelo)
+     */
+    private isRecoverableError(error: any): boolean {
+        const errorMessage = error?.message?.toLowerCase() || '';
+        const errorCode = error?.code || error?.error?.code || 0;
+        const errorStatus = error?.status || error?.response?.status || 0;
+        
+        // Log para debug
+        console.log(`   🔍 Debug erro - Status: ${errorStatus}, Code: ${errorCode}, Type: ${error?.constructor?.name}`);
+        
+        // Erros que devem acionar fallback
+        return (
+            errorStatus === 404 ||           // Modelo não encontrado
+            errorStatus === 429 ||           // Rate limit
+            errorStatus === 503 ||           // Serviço indisponível
+            errorStatus === 500 ||           // Erro interno
+            errorCode === 404 ||
+            errorCode === 429 ||
+            errorCode === 503 ||
+            errorCode === 500 ||
+            error?.constructor?.name === 'RateLimitError' ||
+            errorMessage.includes('not found') ||
+            errorMessage.includes('rate limit') ||
+            errorMessage.includes('timeout') ||
+            errorMessage.includes('unavailable')
+        );
+    }
+
+    /**
+     * Reseta índice de modelo para o primeiro
+     */
+    private resetModelIndex(): void {
+        if (this.currentModelIndex !== 0) {
+            this.currentModelIndex = 0;
+            this.llm = this.createLLM(this.availableModels[0]);
+        }
     }
 
     /**
@@ -79,7 +144,7 @@ export class AIService {
                     answer: 'Desculpe, não encontrei informações relevantes nos documentos enviados para responder essa pergunta. Por favor, verifique se fez upload dos documentos corretos ou reformule sua pergunta.',
                     context,
                     metadata: {
-                        model: CONFIG.openRouter.nlpModel,
+                        model: this.availableModels[0],
                         processingTime: Date.now() - startTime,
                     }
                 };
@@ -97,7 +162,7 @@ export class AIService {
                     answer: 'Não tenho confiança suficiente para responder essa pergunta com base nos documentos enviados. O conteúdo encontrado não parece ser suficientemente relevante.',
                     context,
                     metadata: {
-                        model: CONFIG.openRouter.nlpModel,
+                        model: this.availableModels[0],
                         processingTime: Date.now() - startTime,
                     }
                 };
@@ -106,19 +171,86 @@ export class AIService {
             // Passo 2: Formatar contexto
             const formattedContext = this.ragService.formatContextForPrompt(context);
 
-            // Passo 3: Gerar resposta com LLM
+            // Passo 3: Gerar resposta com LLM (com fallback automático)
             console.log('🤖 Gerando resposta com IA...');
             
-            const answer = await this.generateResponse(question, formattedContext);
+            const attemptedModels: string[] = [];
+            let answer: string | null = null;
+            let lastError: any = null;
 
+            // Tentar cada modelo até obter sucesso
+            for (let attempt = 0; attempt < this.availableModels.length; attempt++) {
+                const currentModel = this.availableModels[this.currentModelIndex];
+                attemptedModels.push(currentModel);
+                
+                try {
+                    console.log(`   Tentando modelo: ${currentModel} (${attempt + 1}/${this.availableModels.length})`);
+                    answer = await this.generateResponse(question, formattedContext);
+                    
+                    // Sucesso! Log e break
+                    if (attempt > 0) {
+                        console.log(`   ✅ Sucesso com modelo alternativo: ${currentModel}`);
+                    }
+                    break;
+                } catch (error) {
+                    lastError = error;
+                    const errorMsg = error instanceof Error ? error.message : String(error);
+                    const errorType = error?.constructor?.name || 'Unknown';
+                    const errorCode = error?.code || error?.error?.code || error?.status;
+                    
+                    console.warn(`   ⚠️  Falha no modelo ${currentModel}:`);
+                    console.warn(`       Tipo: ${errorType}, Código: ${errorCode}`);
+                    console.warn(`       Mensagem: ${errorMsg.split('\n')[0]}`);
+                    
+                    // Se é erro recuperável e ainda há modelos, tentar próximo
+                    const isRecoverable = this.isRecoverableError(error);
+                    const hasMoreModels = this.currentModelIndex < this.availableModels.length - 1;
+                    
+                    console.log(`   📊 Recuperável: ${isRecoverable}, Mais modelos: ${hasMoreModels}`);
+                    
+                    if (isRecoverable && this.switchToNextModel()) {
+                        continue;
+                    } else {
+                        // Não há mais modelos ou erro não recuperável
+                        if (!isRecoverable) {
+                            console.error(`   🛑 Erro não recuperável, parando tentativas`);
+                        }
+                        break;
+                    }
+                }
+            }
+
+            // Se todos os modelos falharam
+            if (!answer) {
+                console.error('❌ Todos os modelos falharam');
+                this.resetModelIndex(); // Reset para próxima tentativa
+                
+                return {
+                    answer: '',
+                    error: `Todos os modelos LLM falharam. Último erro: ${lastError instanceof Error ? lastError.message : String(lastError)}`,
+                    context,
+                    metadata: {
+                        model: attemptedModels.at(-1) || this.availableModels[0],
+                        attemptedModels,
+                        processingTime: Date.now() - startTime,
+                    }
+                };
+            }
+
+            // Sucesso!
             const response: AIResponse = {
                 answer,
                 context,
                 metadata: {
-                    model: CONFIG.openRouter.nlpModel,
+                    model: this.availableModels[this.currentModelIndex],
+                    modelIndex: this.currentModelIndex,
+                    attemptedModels: attemptedModels.length > 1 ? attemptedModels.slice(0, -1) : undefined,
                     processingTime: Date.now() - startTime,
                 }
             };
+
+            // Reset para primeiro modelo após sucesso
+            this.resetModelIndex();
 
             console.log('\n💬 RESPOSTA:');
             console.log(answer);
@@ -128,12 +260,13 @@ export class AIService {
             return response;
         } catch (error) {
             console.error('❌ Erro ao responder pergunta:', error);
+            this.resetModelIndex(); // Reset após erro
             
             return {
                 answer: '',
                 error: `Erro ao processar pergunta: ${error instanceof Error ? error.message : String(error)}`,
                 metadata: {
-                    model: CONFIG.openRouter.nlpModel,
+                    model: this.availableModels[0],
                     processingTime: Date.now() - startTime,
                 }
             };
@@ -205,7 +338,7 @@ export class AIService {
                     answer: noContextMsg,
                     context,
                     metadata: {
-                        model: CONFIG.openRouter.nlpModel,
+                        model: this.availableModels[0],
                         processingTime: Date.now() - startTime,
                     }
                 };
@@ -249,7 +382,7 @@ export class AIService {
                 answer: fullAnswer.trim(),
                 context,
                 metadata: {
-                    model: CONFIG.openRouter.nlpModel,
+                    model: this.availableModels[this.currentModelIndex],
                     processingTime: Date.now() - startTime,
                 }
             };
@@ -263,7 +396,7 @@ export class AIService {
                 answer: '',
                 error: errorMsg,
                 metadata: {
-                    model: CONFIG.openRouter.nlpModel,
+                    model: this.availableModels[0],
                     processingTime: Date.now() - startTime,
                 }
             };

@@ -67,13 +67,52 @@ export const CONFIG = Object.freeze({
         database: "neo4j", // default database
     },
 
-    // Configurações do OpenRouter (LLM)
+    // Configurações do OpenRouter (LLM) com sistema de fallback
     openRouter: {
-        nlpModel: process.env.NLP_MODEL || 'meta-llama/llama-3.1-8b-instruct:free',
+        // Sistema de múltiplos modelos com fallback automático
+        nlpModels: (() => {
+            const qtdModelos = Number.parseInt(process.env.QTD_DE_NPL_MODEL || '0', 10);
+            
+            // Se QTD_DE_NPL_MODEL estiver configurado, ler múltiplos modelos
+            if (qtdModelos > 0) {
+                const modelos: string[] = [];
+                for (let i = 1; i <= qtdModelos; i++) {
+                    const modelo = process.env[`NLP_MODEL_${i}`];
+                    if (modelo) {
+                        modelos.push(modelo);
+                    }
+                }
+                
+                if (modelos.length > 0) {
+                    return modelos;
+                }
+            }
+            
+            // Fallback para configuração antiga (NLP_MODEL único)
+            const modeloUnico = process.env.NLP_MODEL;
+            if (modeloUnico) {
+                return [modeloUnico];
+            }
+            
+            // Fallback final com modelos testados
+            return [
+                'google/gemma-4-26b-a4b-it:free',
+                'minimax/minimax-m2.5:free',
+                'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free'
+            ];
+        })(),
+        // Compatibilidade: primeiro modelo da lista
+        nlpModel: (() => {
+            const qtdModelos = Number.parseInt(process.env.QTD_DE_NPL_MODEL || '0', 10);
+            if (qtdModelos > 0 && process.env.NLP_MODEL_1) {
+                return process.env.NLP_MODEL_1;
+            }
+            return process.env.NLP_MODEL || 'google/gemma-4-26b-a4b-it:free';
+        })(),
         url: "https://openrouter.ai/api/v1",
         apiKey: process.env.OPENROUTER_API_KEY || '',
         temperature: 0.3,
-        maxRetries: 2,
+        maxRetries: 0, // Não usar retry do LangChain, vamos fazer nosso próprio fallback
         maxTokens: 2000,
         defaultHeaders: {
             "HTTP-Referer": process.env.OPENROUTER_SITE_URL || 'http://localhost:3000',
@@ -163,7 +202,11 @@ export function logConfig(): void {
     console.log('\n📋 Configurações carregadas:');
     console.log(`   Servidor: http://localhost:${CONFIG.server.port}`);
     console.log(`   Neo4j: ${CONFIG.neo4j.url}`);
-    console.log(`   LLM: ${CONFIG.openRouter.nlpModel}`);
+    console.log(`   LLM (fallback): ${CONFIG.openRouter.nlpModels.length} modelo(s)`);
+    CONFIG.openRouter.nlpModels.forEach((modelo, idx) => {
+        const prefix = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '  ';
+        console.log(`      ${prefix} ${modelo}`);
+    });
     console.log(`   Embedding: ${CONFIG.embedding.modelName}`);
     console.log(`   Upload dir: ${CONFIG.upload.uploadDir}`);
     console.log(`   Max file size: ${CONFIG.upload.maxFileSizeMB}MB`);
