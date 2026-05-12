@@ -95,6 +95,19 @@ NEO4J_PASSWORD=password
 OPENROUTER_API_KEY=sua_chave_aqui  # Pegue em https://openrouter.ai
 ```
 
+**Modelos LLM disponíveis** (gratuitos no OpenRouter):
+```env
+# Recomendado (padrão):
+NLP_MODEL=qwen/qwen-2-7b-instruct:free
+
+# Alternativas gratuitas:
+# NLP_MODEL=google/gemini-flash-1.5-8b:free
+# NLP_MODEL=mistralai/mistral-7b-instruct:free  
+# NLP_MODEL=meta-llama/llama-3.2-3b-instruct:free
+```
+
+> 💡 **Modelos gratuitos** podem ter limite de requisições. Se um modelo retornar erro 404, troque por outro da lista.
+
 ### Passo 3: Infraestrutura
 ```bash
 # Inicia o Neo4j via Docker
@@ -319,6 +332,22 @@ Siga o guia detalhado de testes em **[TESTING.md](./TESTING.md)** que inclui:
 ### "Index not found" ao fazer pergunta
 - **Causa**: Banco não foi inicializado
 - **Solução**: Execute `npm run init:db`
+
+### ❌ Erro 404 "No endpoints found for model" ao fazer perguntas
+- **Causa**: O modelo LLM configurado não existe mais no OpenRouter
+- **Sintomas**:
+  ```
+  NotFoundError: 404 No endpoints found for meta-llama/llama-3.1-8b-instruct:free
+  ```
+- **Solução**: Atualizar o modelo no arquivo `.env`:
+  ```env
+  # Modelos gratuitos alternativos (testados):
+  NLP_MODEL=qwen/qwen-2-7b-instruct:free              # Recomendado (rápido)
+  NLP_MODEL=google/gemini-flash-1.5-8b:free           # Alternativa Google
+  NLP_MODEL=mistralai/mistral-7b-instruct:free        # Alternativa Mistral
+  NLP_MODEL=meta-llama/llama-3.2-3b-instruct:free     # Llama mais recente
+  ```
+- **Após alterar**: Reinicie o servidor (`Ctrl+C` e `npm run dev`)
 
 ## 📚 Recursos e Referências
 
