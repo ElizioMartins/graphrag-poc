@@ -30,14 +30,17 @@ router.get('/', async (req: Request, res: Response) => {
         const results: any = await graphBuilder['driver']
             .session()
             .run(query)
-            .then(result => result.records.map(record => ({
-                id: record.get('id'),
-                filePath: record.get('filePath'),
-                fileType: record.get('fileType'),
-                createdAt: record.get('createdAt'),
-                metadata: record.get('metadata') ? JSON.parse(record.get('metadata')) : {},
-                chunkCount: record.get('chunkCount').toNumber(),
-            })));
+            .then(result => result.records.map(record => {
+                const createdAt = record.get('createdAt');
+                return {
+                    id: record.get('id'),
+                    filePath: record.get('filePath'),
+                    fileType: record.get('fileType'),
+                    createdAt: createdAt ? new Date(createdAt.toString()).toISOString() : new Date().toISOString(),
+                    metadata: record.get('metadata') ? JSON.parse(record.get('metadata')) : {},
+                    chunkCount: record.get('chunkCount').toNumber(),
+                };
+            }));
 
         await graphBuilder.close();
 
@@ -96,11 +99,12 @@ router.get('/:id', async (req: Request, res: Response) => {
         }
 
         const record = result.records[0]!;
+        const createdAt = record.get('createdAt');
         const document = {
             id: record.get('id'),
             filePath: record.get('filePath'),
             fileType: record.get('fileType'),
-            createdAt: record.get('createdAt'),
+            createdAt: createdAt ? new Date(createdAt.toString()).toISOString() : new Date().toISOString(),
             metadata: record.get('metadata') ? JSON.parse(record.get('metadata')) : {},
             chunkCount: record.get('chunkCount').toNumber(),
             entities: record.get('entities'),
