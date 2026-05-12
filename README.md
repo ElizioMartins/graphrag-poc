@@ -95,23 +95,23 @@ NEO4J_PASSWORD=password
 OPENROUTER_API_KEY=sua_chave_aqui  # Pegue em https://openrouter.ai
 ```
 
-**Modelos LLM disponíveis** (gratuitos no OpenRouter - atualizados em 12/05/2026):
+**Modelos LLM disponíveis** (gratuitos no OpenRouter - verificados):
 ```env
-# Recomendado (padrão - 120B params, bom em coding/reasoning):
-NLP_MODEL=nvidia/nemotron-3-super:free
+# Recomendado (padrão - Google Gemma 2, estável):
+NLP_MODEL=google/gemma-2-9b-it:free
 
-# Alternativas gratuitas verificadas:
-# NLP_MODEL=openai/gpt-oss-120b:free              # OpenAI 117B MoE - reasoning forte
-# NLP_MODEL=google/gemma-4-31b:free               # Google 31B - multimodal, 256K context
-# NLP_MODEL=arcee-ai/trinity-large-thinking:free  # Arcee AI - reasoning
-# NLP_MODEL=minimax/minimax-m2.5:free             # MiniMax - productivity
-# NLP_MODEL=poolside/laguna-m.1:free              # Poolside - coding agent
-# NLP_MODEL=nvidia/nemotron-3-nano-omni:free      # NVIDIA 30B multimodal
-# NLP_MODEL=baidu-qianfan/cobuddy:free            # Baidu - code generation
-# NLP_MODEL=inclusionai/ring-2.6-1t:free          # 1T params, 63B active
+# Alternativas gratuitas testadas:
+# NLP_MODEL=meta-llama/llama-3.2-3b-instruct:free     # Meta Llama 3.2 - compacto
+# NLP_MODEL=meta-llama/llama-3.2-1b-instruct:free     # Llama 3.2 ultra-leve
+# NLP_MODEL=mistralai/mistral-7b-instruct:free        # Mistral 7B - balanceado
+# NLP_MODEL=microsoft/phi-3-mini-128k-instruct:free   # Microsoft Phi-3 - eficiente
+# NLP_MODEL=microsoft/phi-3-medium-128k-instruct:free # Phi-3 médio
+# NLP_MODEL=google/gemma-7b-it:free                   # Gemma 7B alternativo
 ```
 
-> 💡 **Modelos gratuitos** podem ter limite de requisições. Se um modelo retornar erro 404, troque por outro da lista.
+> ⚠️ **Importante**: Modelos gratuitos mudam frequentemente. Se receber erro "is not a valid model ID", 
+> teste os modelos alternativos acima ou verifique os disponíveis em: 
+> https://openrouter.ai/models?max_price=0
 
 ### Passo 3: Infraestrutura
 ```bash
@@ -338,26 +338,25 @@ Siga o guia detalhado de testes em **[TESTING.md](./TESTING.md)** que inclui:
 - **Causa**: Banco não foi inicializado
 - **Solução**: Execute `npm run init:db`
 
-### ❌ Erro 404 "No endpoints found for model" ao fazer perguntas
-- **Causa**: O modelo LLM configurado não existe mais no OpenRouter
+### ❌ Erro 404 "No endpoints found" ou "is not a valid model ID"
+- **Causa**: O modelo LLM configurado não existe ou não está mais disponível no OpenRouter
 - **Sintomas**:
   ```
-  NotFoundError: 404 No endpoints found for meta-llama/llama-3.1-8b-instruct:free
+  NotFoundError: 404 No endpoints found for model...
+  'model-name is not a valid model ID'
   ```
-- **Solução**: Atualizar o modelo no arquivo `.env` (modelos verificados em 12/05/2026):
+- **Solução**: Atualizar o modelo no arquivo `.env` com modelos estáveis:
   ```env
-  # Modelos gratuitos testados e funcionando:
-  NLP_MODEL=nvidia/nemotron-3-super:free              # 120B - recomendado
-  NLP_MODEL=openai/gpt-oss-120b:free                  # OpenAI 117B MoE
-  NLP_MODEL=google/gemma-4-31b:free                   # Google 31B multimodal
-  NLP_MODEL=arcee-ai/trinity-large-thinking:free      # Arcee - reasoning
-  NLP_MODEL=minimax/minimax-m2.5:free                 # MiniMax - productivity
-  NLP_MODEL=poolside/laguna-m.1:free                  # Poolside - coding
-  NLP_MODEL=nvidia/nemotron-3-nano-omni:free          # NVIDIA 30B multimodal
-  NLP_MODEL=baidu-qianfan/cobuddy:free                # Baidu - code gen
+  # Modelos mais confiáveis (atualizado 12/05/2026):
+  NLP_MODEL=google/gemma-2-9b-it:free                 # Recomendado - estável
+  NLP_MODEL=meta-llama/llama-3.2-3b-instruct:free     # Meta Llama - compacto
+  NLP_MODEL=mistralai/mistral-7b-instruct:free        # Mistral - balanceado
+  NLP_MODEL=microsoft/phi-3-mini-128k-instruct:free   # Microsoft - eficiente
   ```
 - **Após alterar**: Reinicie o servidor (`Ctrl+C` e `npm run dev`)
 - **Verificar disponibilidade**: https://openrouter.ai/models?max_price=0
+
+> 💡 **Dica**: Modelos free mais antigos/consolidados (Gemma, Llama 3.2, Mistral, Phi-3) tendem a ser mais estáveis que modelos novos.
 
 ## 📚 Recursos e Referências
 
