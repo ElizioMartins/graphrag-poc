@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GraphRAG POC - Document Q&A</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar - Lista de documentos -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>📚 Documentos</h2>
+                <button id="clear-all-btn" class="icon-btn" title="Limpar todos">🗑️</button>
+            </div>
+
+            <div class="upload-section">
+                <input type="file" id="file-input" accept=".pdf,.xml" multiple hidden>
+                <button id="upload-btn" class="upload-btn">
+                    <span class="upload-icon">📤</span>
+                    <span>Upload de Arquivos</span>
+                </button>
+                <div class="upload-hint">PDF ou XML (máx. 50MB cada)</div>
+            </div>
+
+            <div id="file-list" class="file-list">
+                <div class="empty-state">
+                    <span class="empty-icon">📄</span>
+                    <p>Nenhum documento ainda</p>
+                    <p class="empty-hint">Faça upload para começar</p>
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <div id="status-indicator" class="status-indicator">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Verificando...</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Área principal - Chat -->
+        <main class="main-content">
+            <header class="main-header">
+                <h1>🤖 GraphRAG POC</h1>
+                <p class="subtitle">Faça perguntas sobre seus documentos</p>
+            </header>
+
+            <div id="chat-container" class="chat-container">
+                <div class="welcome-message">
+                    <h2>👋 Bem-vindo!</h2>
+                    <p>1. Faça upload de documentos PDF ou XML na barra lateral</p>
+                    <p>2. Aguarde o processamento (embeddings + graph)</p>
+                    <p>3. Digite sua pergunta abaixo</p>
+                    <p class="welcome-note">💡 As respostas são baseadas <strong>apenas</strong> no conteúdo dos seus documentos</p>
+                </div>
+            </div>
+
+            <div class="input-section">
+                <form id="question-form" class="question-form">
+                    <div class="input-wrapper">
+                        <textarea 
+                            id="question-input" 
+                            placeholder="Digite sua pergunta sobre os documentos..."
+                            rows="3"
+                        ></textarea>
+                        <button type="submit" id="send-btn" class="send-btn" disabled>
+                            <span id="send-icon">📤</span>
+                        </button>
+                    </div>
+                    <div class="form-options">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="use-graph-rag" checked>
+                            <span>Usar GraphRAG (expansão via grafo)</span>
+                        </label>
+                        <div class="char-count">
+                            <span id="char-count">0</span> / 1000
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal de upload (progresso) -->
+    <div id="upload-modal" class="modal hidden">
+        <div class="modal-content">
+            <h3>📤 Processando arquivos...</h3>
+            <div class="progress-container">
+                <div id="upload-progress" class="progress-bar">
+                    <div class="progress-fill"></div>
+                </div>
+                <div id="upload-status" class="upload-status">Iniciando...</div>
+            </div>
+            <div id="upload-details" class="upload-details"></div>
+        </div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
