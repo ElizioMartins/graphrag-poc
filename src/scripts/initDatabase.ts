@@ -28,21 +28,29 @@ async function initializeDatabase() {
         const indexSession = driver.session();
         
         try {
-            // Índice de vector para chunks
+            // Índice de vector para chunks (usando procedure para compatibilidade)
+            // Neo4j 5.14 requer uso de db.index.vector.createNodeIndex
             const vectorIndexQuery = `
-                CREATE VECTOR INDEX ${CONFIG.neo4j.indexName} IF NOT EXISTS
-                FOR (c:Chunk)
-                ON c.embedding
-                OPTIONS {
-                    indexConfig: {
-                        \`vector.dimensions\`: ${CONFIG.embedding.dimension},
-                        \`vector.similarity_function\`: 'cosine'
-                    }
-                }
+                CALL db.index.vector.createNodeIndex(
+                    '${CONFIG.neo4j.indexName}',
+                    'Chunk',
+                    'embedding',
+                    ${CONFIG.embedding.dimension},
+                    'cosine'
+                )
             `;
             
-            await indexSession.run(vectorIndexQuery);
-            console.log(`   ✅ Índice de vetor criado: ${CONFIG.neo4j.indexName}`);
+            try {
+                await indexSession.run(vectorIndexQuery);
+                console.log(`   ✅ Índice de vetor criado: ${CONFIG.neo4j.indexName}`);
+            } catch (err: any) {
+                // Se o índice já existe, apenas log
+                if (err.code === 'Neo.ClientError.Schema.EquivalentSchemaRuleAlreadyExists') {
+                    console.log(`   ℹ️  Índice de vetor já existe: ${CONFIG.neo4j.indexName}`);
+                } else {
+                    throw err;
+                }
+            }
 
             // Constraint para IDs únicos de documentos
             await indexSession.run(`

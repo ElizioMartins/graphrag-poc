@@ -104,7 +104,16 @@ npm run infra:up
 npm run init:db
 ```
 
-### Passo 4: Iniciar o Sistema
+### Passo 4: Download do Modelo (Recomendado)
+```bash
+# Pré-baixa o modelo de embeddings (~90MB)
+# Isso evita timeout na primeira execução
+npm run download:model
+```
+
+> 💡 **Opcional mas recomendado**: Este passo baixa o modelo de embeddings antecipadamente. Se pular, o download acontecerá automaticamente no primeiro uso (pode levar 2-5 minutos e ocasionalmente falhar por timeout).
+
+### Passo 5: Iniciar o Sistema
 ```bash
 npm run dev
 ```
@@ -194,6 +203,9 @@ npm run infra:down       # Para o Neo4j e remove volumes
 # 🗄️ Banco de Dados
 npm run init:db          # Inicializa índices vetoriais no Neo4j
 npm run clear:db         # Limpa todos os dados (reset completo)
+
+# 🤖 Modelo de Embeddings
+npm run download:model   # Pré-baixa o modelo de embeddings (recomendado)
 ```
 
 ## 🔎 Explorando o Grafo no Neo4j
@@ -280,9 +292,29 @@ Siga o guia detalhado de testes em **[TESTING.md](./TESTING.md)** que inclui:
 - **Causa**: Container Docker não está rodando
 - **Solução**: Execute `npm run infra:up`
 
+### ❌ Erro "TypeError: terminated" ou "other side closed"
+- **Causa**: Conexão interrompida durante download do modelo de embeddings (primeira execução)
+- **Sintomas**: 
+  ```
+  ❌ Erro ao inicializar embeddings: TypeError: terminated
+  SocketError: other side closed
+  ```
+- **Soluções**:
+  1. **Aguarde e tente novamente** - O sistema agora tem retry automático (3 tentativas)
+  2. **Pré-baixe o modelo**: Execute `npm run download:model` antes de iniciar o servidor
+  3. **Verifique sua conexão** - Certifique-se de ter uma conexão estável com a internet
+  4. **Use um modelo menor** (opcional):
+     ```env
+     # No arquivo .env
+     EMBEDDING_MODEL=Xenova/all-MiniLM-L6-v2  # Padrão: ~90MB
+     # Ou use: Xenova/paraphrase-MiniLM-L3-v2  # Mais leve: ~60MB
+     ```
+
 ### Upload travado em "Processando..."
 - **Causa**: Primeira execução está baixando modelo de embeddings (~90MB)
-- **Solução**: Aguarde 2-5 minutos (só acontece na primeira vez)
+- **Solução**: 
+  - Aguarde 2-5 minutos (só acontece na primeira vez)
+  - Ou execute `npm run download:model` antes para evitar espera
 
 ### "Index not found" ao fazer pergunta
 - **Causa**: Banco não foi inicializado

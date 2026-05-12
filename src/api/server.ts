@@ -4,6 +4,10 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { CONFIG, logConfig, validateConfig } from '../config.ts';
 
+// Configurar timeouts do Node.js para downloads grandes
+// Aumentar timeout de conexão e headersTimeout
+process.env.NODE_OPTIONS = `${process.env.NODE_OPTIONS || ''} --max-http-header-size=16384`;
+
 // Importar rotas
 import healthRoutes from './routes/health.ts';
 import uploadRoutes from './routes/upload.ts';

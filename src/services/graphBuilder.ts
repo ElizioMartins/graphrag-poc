@@ -95,35 +95,40 @@ export class GraphBuilder {
         try {
             console.log(`📝 Criando ${chunks.length} chunks para documento ${documentId}...`);
 
-            // Processar em lotes para melhor performance
-            const batchSize = 10;
+            // Usar UNWIND para criar todos os chunks em uma única query (mais eficiente)
+            const batchSize = 50;
             for (let i = 0; i < chunks.length; i += batchSize) {
                 const batch = chunks.slice(i, i + batchSize);
                 
-                await Promise.all(batch.map(async (chunk, batchIndex) => {
+                const chunksData = batch.map((chunk, batchIndex) => {
                     const chunkIndex = i + batchIndex;
                     const chunkId = `${documentId}_chunk_${chunkIndex}`;
                     
-                    await session.run(
-                        `
-                        MATCH (d:Document {id: $documentId})
-                        MERGE (c:Chunk {id: $chunkId})
-                        SET c.text = $text,
-                            c.chunkIndex = $chunkIndex,
-                            c.chunkLength = $chunkLength,
-                            c.metadata = $metadata
-                        MERGE (d)-[:CONTAINS]->(c)
-                        `,
-                        {
-                            documentId,
-                            chunkId,
-                            text: chunk.pageContent,
-                            chunkIndex,
-                            chunkLength: chunk.pageContent.length,
-                            metadata: JSON.stringify(chunk.metadata)
-                        }
-                    );
-                }));
+                    return {
+                        chunkId,
+                        text: chunk.pageContent,
+                        chunkIndex,
+                        chunkLength: chunk.pageContent.length,
+                        metadata: JSON.stringify(chunk.metadata)
+                    };
+                });
+
+                await session.run(
+                    `
+                    MATCH (d:Document {id: $documentId})
+                    UNWIND $chunks AS chunkData
+                    MERGE (c:Chunk {id: chunkData.chunkId})
+                    SET c.text = chunkData.text,
+                        c.chunkIndex = chunkData.chunkIndex,
+                        c.chunkLength = chunkData.chunkLength,
+                        c.metadata = chunkData.metadata
+                    MERGE (d)-[:CONTAINS]->(c)
+                    `,
+                    {
+                        documentId,
+                        chunks: chunksData
+                    }
+                );
 
                 console.log(`   Processados ${Math.min(i + batchSize, chunks.length)}/${chunks.length} chunks`);
             }
@@ -144,31 +149,30 @@ export class GraphBuilder {
         try {
             console.log(`🏷️  Criando ${entities.length} entidades...`);
 
-            // Processar em lotes
-            const batchSize = 20;
+            // Usar UNWIND para criar todas as entidades em uma query
+            const batchSize = 100;
             for (let i = 0; i < entities.length; i += batchSize) {
                 const batch = entities.slice(i, i + batchSize);
                 
-                await Promise.all(batch.map(async (entity) => {
-                    const entityId = this.generateId('entity', entity.name);
-                    
-                    await session.run(
-                        `
-                        MERGE (e:Entity {id: $id})
-                        SET e.name = $name,
-                            e.type = $type,
-                            e.occurrences = $occurrences,
-                            e.contexts = $contexts
-                        `,
-                        {
-                            id: entityId,
-                            name: entity.name,
-                            type: entity.type,
-                            occurrences: entity.occurrences,
-                            contexts: JSON.stringify(entity.contexts)
-                        }
-                    );
+                const entitiesData = batch.map((entity) => ({
+                    id: this.generateId('entity', entity.name),
+                    name: entity.name,
+                    type: entity.type,
+                    occurrences: entity.occurrences,
+                    contexts: JSON.stringify(entity.contexts)
                 }));
+
+                await session.run(
+                    `
+                    UNWIND $entities AS entityData
+                    MERGE (e:Entity {id: entityData.id})
+                    SET e.name = entityData.name,
+                        e.type = entityData.type,
+                        e.occurrences = entityData.occurrences,
+                        e.contexts = entityData.contexts
+                    `,
+                    { entities: entitiesData }
+                );
 
                 console.log(`   Processadas ${Math.min(i + batchSize, entities.length)}/${entities.length} entidades`);
             }
@@ -195,8 +199,8 @@ export class GraphBuilder {
         try {
             console.log(`🔗 Criando relacionamentos MENTIONS...`);
             
-            let mentionsCount = 0;
             const entityNames = entities.map(e => e.name);
+            const mentionsData: Array<{ chunkId: string; entityId: string }> = [];
 
             // Para cada chunk, verificar quais entidades são mencionadas
             for (let i = 0; i < chunks.length; i++) {
@@ -208,25 +212,28 @@ export class GraphBuilder {
                     chunk.pageContent.includes(entityName)
                 );
 
-                // Criar relacionamentos
+                // Adicionar aos relacionamentos
                 for (const entityName of mentionedEntities) {
                     const entityId = this.generateId('entity', entityName);
-                    
-                    await session.run(
-                        `
-                        MATCH (c:Chunk {id: $chunkId})
-                        MATCH (e:Entity {id: $entityId})
-                        MERGE (c)-[r:MENTIONS]->(e)
-                        SET r.count = coalesce(r.count, 0) + 1
-                        `,
-                        { chunkId, entityId }
-                    );
-                    
-                    mentionsCount++;
+                    mentionsData.push({ chunkId, entityId });
                 }
             }
 
-            console.log(`✅ ${mentionsCount} relacionamentos MENTIONS criados`);
+            // Criar todos os relacionamentos de uma vez usando UNWIND
+            if (mentionsData.length > 0) {
+                await session.run(
+                    `
+                    UNWIND $mentions AS mention
+                    MATCH (c:Chunk {id: mention.chunkId})
+                    MATCH (e:Entity {id: mention.entityId})
+                    MERGE (c)-[r:MENTIONS]->(e)
+                    SET r.count = coalesce(r.count, 0) + 1
+                    `,
+                    { mentions: mentionsData }
+                );
+            }
+
+            console.log(`✅ ${mentionsData.length} relacionamentos MENTIONS criados`);
         } finally {
             await session.close();
         }
@@ -244,24 +251,26 @@ export class GraphBuilder {
         try {
             console.log(`🔗 Criando ${coOccurrences.length} relacionamentos CO_OCCURS...`);
 
-            for (const coOccurrence of coOccurrences) {
-                const entity1Id = this.generateId('entity', coOccurrence.entity1);
-                const entity2Id = this.generateId('entity', coOccurrence.entity2);
-                
+            // Preparar dados para batch insert
+            const coOccurrencesData = coOccurrences.map(coOccurrence => ({
+                entity1Id: this.generateId('entity', coOccurrence.entity1),
+                entity2Id: this.generateId('entity', coOccurrence.entity2),
+                count: coOccurrence.count,
+                strength: Math.min(coOccurrence.count / 10, 1.0)
+            }));
+
+            // Criar todos os relacionamentos usando UNWIND
+            if (coOccurrencesData.length > 0) {
                 await session.run(
                     `
-                    MATCH (e1:Entity {id: $entity1Id})
-                    MATCH (e2:Entity {id: $entity2Id})
+                    UNWIND $coOccurrences AS coOcc
+                    MATCH (e1:Entity {id: coOcc.entity1Id})
+                    MATCH (e2:Entity {id: coOcc.entity2Id})
                     MERGE (e1)-[r:CO_OCCURS]-(e2)
-                    SET r.count = $count,
-                        r.strength = $strength
+                    SET r.count = coOcc.count,
+                        r.strength = coOcc.strength
                     `,
-                    {
-                        entity1Id,
-                        entity2Id,
-                        count: coOccurrence.count,
-                        strength: Math.min(coOccurrence.count / 10, 1.0) // Normalizar 0-1
-                    }
+                    { coOccurrences: coOccurrencesData }
                 );
             }
 

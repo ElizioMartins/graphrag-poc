@@ -13,7 +13,8 @@
     "infra:up": "docker-compose up -d --wait",
     "infra:down": "docker-compose down --volumes",
     "init:db": "node --env-file .env --experimental-strip-types src/scripts/initDatabase.ts",
-    "clear:db": "node --env-file .env --experimental-strip-types src/scripts/clearDatabase.ts"
+    "clear:db": "node --env-file .env --experimental-strip-types src/scripts/clearDatabase.ts",
+    "download:model": "node --env-file .env --experimental-strip-types src/scripts/downloadModel.ts"
   },
   "keywords": [
     "rag",

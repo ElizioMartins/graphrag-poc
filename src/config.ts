@@ -88,6 +88,9 @@ export const CONFIG = Object.freeze({
             dtype: "fp32" as DataType, // Options: 'fp32' (best quality), 'fp16' (faster), 'q8', 'q4', 'q4f16' (quantized)
         } satisfies PretrainedModelOptions,
         dimension: 384, // Dimensão do modelo all-MiniLM-L6-v2
+        // Configurações de retry para download/inicialização
+        maxInitRetries: 3, // Número de tentativas de inicialização
+        initRetryDelay: 5000, // Delay entre tentativas de inicialização (ms)
     },
 
     // Configurações de text splitter

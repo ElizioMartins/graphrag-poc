@@ -16,26 +16,50 @@ export class EmbeddingService {
     }
 
     /**
-     * Inicializa o modelo de embeddings (download se necessário)
+     * Aguarda um delay
+     */
+    private async delay(ms: number): Promise<void> {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    /**
+     * Inicializa o modelo de embeddings com retry logic
      */
     async initialize(): Promise<void> {
         if (this.isInitialized) {
             return;
         }
 
-        try {
-            console.log('⏳ Carregando modelo de embeddings...');
-            console.log('   (Primeira execução pode demorar - baixando modelo)');
-            
-            // Fazer uma embedding de teste para forçar download do modelo
-            await this.embeddings.embedQuery('teste');
-            
-            this.isInitialized = true;
-            console.log('✅ Modelo de embeddings carregado');
-        } catch (error) {
-            console.error('❌ Erro ao inicializar embeddings:', error);
-            throw new Error(`Falha ao carregar modelo de embeddings: ${error}`);
+        const maxRetries = CONFIG.embedding.maxInitRetries;
+        const retryDelay = CONFIG.embedding.initRetryDelay;
+        let lastError: Error | null = null;
+
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                console.log(`⏳ Carregando modelo de embeddings... (Tentativa ${attempt}/${maxRetries})`);
+                console.log('   (Primeira execução pode demorar - baixando modelo)');
+                
+                // Fazer uma embedding de teste para forçar download do modelo
+                // Usar timeout maior para permitir o download completo
+                await this.embeddings.embedQuery('teste de inicialização');
+                
+                this.isInitialized = true;
+                console.log('✅ Modelo de embeddings carregado com sucesso!');
+                return;
+            } catch (error) {
+                lastError = error as Error;
+                console.error(`❌ Erro na tentativa ${attempt}/${maxRetries}:`, error);
+                
+                if (attempt < maxRetries) {
+                    console.log(`⏳ Aguardando ${retryDelay/1000}s antes de tentar novamente...`);
+                    await this.delay(retryDelay);
+                }
+            }
         }
+
+        // Se chegou aqui, todas as tentativas falharam
+        console.error(`❌ Falha após ${maxRetries} tentativas. Último erro:`, lastError);
+        throw new Error(`Falha ao carregar modelo de embeddings após ${maxRetries} tentativas: ${lastError?.message || lastError}`);
     }
 
     /**
