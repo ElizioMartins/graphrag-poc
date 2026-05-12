@@ -95,18 +95,20 @@ NEO4J_PASSWORD=password
 OPENROUTER_API_KEY=sua_chave_aqui  # Pegue em https://openrouter.ai
 ```
 
-**Modelos LLM disponíveis** (gratuitos no OpenRouter - verificados):
+**Modelos LLM disponíveis** (gratuitos no OpenRouter - ✅ **testados em 12/05/2026**):
 ```env
-# Recomendado (padrão - Google Gemma 2, estável):
-NLP_MODEL=google/gemma-2-9b-it:free
+# ✅ RECOMENDADO (Google Gemma 4, 26B MoE, 4B ativos - melhor qualidade):
+NLP_MODEL=google/gemma-4-26b-a4b-it:free
 
-# Alternativas gratuitas testadas:
+# ✅ Alternativas testadas e funcionando:
+NLP_MODEL=minimax/minimax-m2.5:free                                # MiniMax - produtividade
+NLP_MODEL=nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free       # NVIDIA Nemotron 3 Nano
+
+# Outras opções (não testadas recentemente):
+# NLP_MODEL=google/gemma-2-9b-it:free                 # Gemma 2 - 9B
 # NLP_MODEL=meta-llama/llama-3.2-3b-instruct:free     # Meta Llama 3.2 - compacto
-# NLP_MODEL=meta-llama/llama-3.2-1b-instruct:free     # Llama 3.2 ultra-leve
 # NLP_MODEL=mistralai/mistral-7b-instruct:free        # Mistral 7B - balanceado
 # NLP_MODEL=microsoft/phi-3-mini-128k-instruct:free   # Microsoft Phi-3 - eficiente
-# NLP_MODEL=microsoft/phi-3-medium-128k-instruct:free # Phi-3 médio
-# NLP_MODEL=google/gemma-7b-it:free                   # Gemma 7B alternativo
 ```
 
 > ⚠️ **Importante**: Modelos gratuitos mudam frequentemente. Se receber erro "is not a valid model ID", 
@@ -345,18 +347,17 @@ Siga o guia detalhado de testes em **[TESTING.md](./TESTING.md)** que inclui:
   NotFoundError: 404 No endpoints found for model...
   'model-name is not a valid model ID'
   ```
-- **Solução**: Atualizar o modelo no arquivo `.env` com modelos estáveis:
+- **Solução**: Atualizar o modelo no arquivo `.env` com modelos testados e funcionando:
   ```env
-  # Modelos mais confiáveis (atualizado 12/05/2026):
-  NLP_MODEL=google/gemma-2-9b-it:free                 # Recomendado - estável
-  NLP_MODEL=meta-llama/llama-3.2-3b-instruct:free     # Meta Llama - compacto
-  NLP_MODEL=mistralai/mistral-7b-instruct:free        # Mistral - balanceado
-  NLP_MODEL=microsoft/phi-3-mini-128k-instruct:free   # Microsoft - eficiente
+  # ✅ Testados e funcionando (12/05/2026):
+  NLP_MODEL=google/gemma-4-26b-a4b-it:free                       # RECOMENDADO (melhor qualidade)
+  NLP_MODEL=minimax/minimax-m2.5:free                            # MiniMax - produtividade
+  NLP_MODEL=nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free   # NVIDIA Nemotron 3
   ```
 - **Após alterar**: Reinicie o servidor (`Ctrl+C` e `npm run dev`)
-- **Verificar disponibilidade**: https://openrouter.ai/models?max_price=0
+- **Verificar modelos disponíveis**: https://openrouter.ai/models?max_price=0
 
-> 💡 **Dica**: Modelos free mais antigos/consolidados (Gemma, Llama 3.2, Mistral, Phi-3) tendem a ser mais estáveis que modelos novos.
+> 💡 **Dica**: Os 3 modelos acima foram testados e aprovados em 12/05/2026. O Google Gemma 4 apresentou melhor qualidade nas respostas.
 
 ## 📚 Recursos e Referências
 
