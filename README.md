@@ -95,15 +95,20 @@ NEO4J_PASSWORD=password
 OPENROUTER_API_KEY=sua_chave_aqui  # Pegue em https://openrouter.ai
 ```
 
-**Modelos LLM disponíveis** (gratuitos no OpenRouter):
+**Modelos LLM disponíveis** (gratuitos no OpenRouter - atualizados em 12/05/2026):
 ```env
-# Recomendado (padrão):
-NLP_MODEL=qwen/qwen-2-7b-instruct:free
+# Recomendado (padrão - 120B params, bom em coding/reasoning):
+NLP_MODEL=nvidia/nemotron-3-super:free
 
-# Alternativas gratuitas:
-# NLP_MODEL=google/gemini-flash-1.5-8b:free
-# NLP_MODEL=mistralai/mistral-7b-instruct:free  
-# NLP_MODEL=meta-llama/llama-3.2-3b-instruct:free
+# Alternativas gratuitas verificadas:
+# NLP_MODEL=openai/gpt-oss-120b:free              # OpenAI 117B MoE - reasoning forte
+# NLP_MODEL=google/gemma-4-31b:free               # Google 31B - multimodal, 256K context
+# NLP_MODEL=arcee-ai/trinity-large-thinking:free  # Arcee AI - reasoning
+# NLP_MODEL=minimax/minimax-m2.5:free             # MiniMax - productivity
+# NLP_MODEL=poolside/laguna-m.1:free              # Poolside - coding agent
+# NLP_MODEL=nvidia/nemotron-3-nano-omni:free      # NVIDIA 30B multimodal
+# NLP_MODEL=baidu-qianfan/cobuddy:free            # Baidu - code generation
+# NLP_MODEL=inclusionai/ring-2.6-1t:free          # 1T params, 63B active
 ```
 
 > 💡 **Modelos gratuitos** podem ter limite de requisições. Se um modelo retornar erro 404, troque por outro da lista.
@@ -339,15 +344,20 @@ Siga o guia detalhado de testes em **[TESTING.md](./TESTING.md)** que inclui:
   ```
   NotFoundError: 404 No endpoints found for meta-llama/llama-3.1-8b-instruct:free
   ```
-- **Solução**: Atualizar o modelo no arquivo `.env`:
+- **Solução**: Atualizar o modelo no arquivo `.env` (modelos verificados em 12/05/2026):
   ```env
-  # Modelos gratuitos alternativos (testados):
-  NLP_MODEL=qwen/qwen-2-7b-instruct:free              # Recomendado (rápido)
-  NLP_MODEL=google/gemini-flash-1.5-8b:free           # Alternativa Google
-  NLP_MODEL=mistralai/mistral-7b-instruct:free        # Alternativa Mistral
-  NLP_MODEL=meta-llama/llama-3.2-3b-instruct:free     # Llama mais recente
+  # Modelos gratuitos testados e funcionando:
+  NLP_MODEL=nvidia/nemotron-3-super:free              # 120B - recomendado
+  NLP_MODEL=openai/gpt-oss-120b:free                  # OpenAI 117B MoE
+  NLP_MODEL=google/gemma-4-31b:free                   # Google 31B multimodal
+  NLP_MODEL=arcee-ai/trinity-large-thinking:free      # Arcee - reasoning
+  NLP_MODEL=minimax/minimax-m2.5:free                 # MiniMax - productivity
+  NLP_MODEL=poolside/laguna-m.1:free                  # Poolside - coding
+  NLP_MODEL=nvidia/nemotron-3-nano-omni:free          # NVIDIA 30B multimodal
+  NLP_MODEL=baidu-qianfan/cobuddy:free                # Baidu - code gen
   ```
 - **Após alterar**: Reinicie o servidor (`Ctrl+C` e `npm run dev`)
+- **Verificar disponibilidade**: https://openrouter.ai/models?max_price=0
 
 ## 📚 Recursos e Referências
 
