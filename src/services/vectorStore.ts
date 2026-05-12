@@ -63,16 +63,22 @@ export class VectorStore {
         try {
             console.log(`📥 Adicionando ${documents.length} documento(s) ao vector store...`);
 
+            // Normalizar metadados para evitar objetos aninhados (Neo4j não suporta)
+            const normalizedDocs = documents.map(doc => ({
+                ...doc,
+                metadata: this.normalizeMetadata(doc.metadata)
+            }));
+
             // Adicionar em lotes
             const batchSize = 10;
-            for (let i = 0; i < documents.length; i += batchSize) {
-                const batch = documents.slice(i, i + batchSize);
+            for (let i = 0; i < normalizedDocs.length; i += batchSize) {
+                const batch = normalizedDocs.slice(i, i + batchSize);
                 
                 for (const doc of batch) {
                     await this.vectorStore.addDocuments([doc]);
                 }
                 
-                console.log(`   Adicionados ${Math.min(i + batchSize, documents.length)}/${documents.length}`);
+                console.log(`   Adicionados ${Math.min(i + batchSize, normalizedDocs.length)}/${normalizedDocs.length}`);
             }
 
             console.log('✅ Documentos adicionados ao vector store');
@@ -229,6 +235,39 @@ export class VectorStore {
                 nodeLabel: CONFIG.neo4j.nodeLabel,
             };
         }
+    }
+
+    /**
+     * Normaliza metadados para Neo4j (converte objetos aninhados em JSON strings)
+     * Neo4j só aceita tipos primitivos e arrays de primitivos
+     */
+    private normalizeMetadata(metadata: Record<string, any>): Record<string, any> {
+        const normalized: Record<string, any> = {};
+
+        for (const [key, value] of Object.entries(metadata)) {
+            if (value === null || value === undefined) {
+                // Ignorar valores nulos
+                continue;
+            }
+
+            if (Array.isArray(value)) {
+                // Arrays: verificar se são primitivos
+                if (value.every(item => typeof item !== 'object')) {
+                    normalized[key] = value;
+                } else {
+                    // Array de objetos: serializar
+                    normalized[key] = JSON.stringify(value);
+                }
+            } else if (typeof value === 'object') {
+                // Objetos aninhados: serializar para JSON string
+                normalized[key] = JSON.stringify(value);
+            } else {
+                // Tipos primitivos: manter como estão
+                normalized[key] = value;
+            }
+        }
+
+        return normalized;
     }
 
     /**
